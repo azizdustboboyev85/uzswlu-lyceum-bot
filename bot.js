@@ -6,12 +6,45 @@
  */
 
 const TelegramBot = require('node-telegram-bot-api');
+const http = require('http');
 
 // ⚠️ Telegram @BotFather dan olingan Token:
 const TOKEN = process.env.TELEGRAM_TOKEN || '8706273830:AAHEF7__G3jMabnGlTK1BAQGw6hLIzj58fo';
+const PORT = process.env.PORT || 3000;
 
-// Botni polling (so'rov yuborish) rejimida ishga tushiramiz
-const bot = new TelegramBot(TOKEN, { polling: true });
+let bot;
+if (process.env.PORT) {
+    // Render.com bepul hostingida ishlaydigan Webhook rejimi
+    bot = new TelegramBot(TOKEN);
+    bot.setWebHook(`https://uzswlu-lyceum-bot.onrender.com/bot${TOKEN}`);
+    
+    // HTTP Server: Ham Render Health Check, ham Telegram Webhook'larni qabul qiladi
+    const server = http.createServer((req, res) => {
+        if (req.method === 'POST' && req.url === `/bot${TOKEN}`) {
+            let body = '';
+            req.on('data', chunk => { body += chunk.toString(); });
+            req.on('end', () => {
+                try {
+                    const update = JSON.parse(body);
+                    bot.processUpdate(update);
+                } catch (e) {
+                    console.error('Webhook error parsing:', e);
+                }
+                res.writeHead(200, { 'Content-Type': 'text/plain' });
+                res.end('OK');
+            });
+        } else {
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            res.end('O\'zDJTU Lyceum Telegram Bot is running!\n');
+        }
+    });
+    server.listen(PORT, () => {
+        console.log(`Server port: ${PORT}`);
+    });
+} else {
+    // Lokal kompyuter uchun oddiy Polling rejimi
+    bot = new TelegramBot(TOKEN, { polling: true });
+}
 
 // Axborot ma'lumotlar bazasi (Markdown formatida)
 const INFO_DATABASE = {
@@ -254,15 +287,7 @@ function sendInfo(chatId, categoryKey) {
     }
 }
 
-// Render.com bepul hostingida xatoliksiz ishlashi uchun veb-server (Health Check)
-const http = require('http');
-const PORT = process.env.PORT || 3000;
-const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('O\'zDJTU Lyceum Telegram Bot is running!\n');
-});
-server.listen(PORT, () => {
-    console.log(`Veb server port: ${PORT}`);
-});
+// Botingiz muvaffaqiyatli ishga tushganini bildirish
+console.log("O'zDJTU Lyceum Telegram Bot ishga tushirildi...");
 
 console.log("O'zDJTU Lyceum Telegram Bot muvaffaqiyatli ishga tushdi...");
